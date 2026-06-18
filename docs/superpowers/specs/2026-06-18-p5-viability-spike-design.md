@@ -170,13 +170,13 @@ New frozen `P5SpikeConfig` in `src/evidenceseeker/config.py` (separate from
 ```python
 class P5SpikeConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    judge_models: list[str] = [           # local models under test — EDIT to installed Ollama tags
-        "ollama:medgemma4B_it_q8",
-        "ollama:medgemma-27b",
-        "ollama:qwen2.5:7b",
+    judge_models: list[str] = [           # local models under test (installed Ollama tags)
+        "ollama:medgemma1.5:4b-it-q8_0",
+        "ollama:medgemma:27b-it-q8_0",
+        "ollama:qwen3.6:35b-a3b-q8_0",
     ]
-    reference_model: str = "anthropic:claude-sonnet-4-20250514"
-    generator_model: str = "anthropic:claude-sonnet-4-20250514"
+    reference_model: str = "anthropic:claude-sonnet-4-6"
+    generator_model: str = "anthropic:claude-sonnet-4-6"
     cases_per_class: int = 5
     temperature: float = 0.0              # judgment stability
     max_false_support_rate: float = 0.10  # informational verdict, not a hard gate
