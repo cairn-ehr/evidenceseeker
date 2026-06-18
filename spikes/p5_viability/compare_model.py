@@ -47,7 +47,6 @@ from spikes.p5_viability.run_viability import (  # noqa: E402
 )
 from spikes.p5_viability.scoring import (  # noqa: E402
     attach_timings,
-    is_all_errored,
     render_review,
     score_run,
 )
@@ -136,23 +135,12 @@ def judge_with(
         start = time.perf_counter()
         out[model] = [safe_verify(agent, c) for c in progress(cases, desc=model)]
         timings[model] = time.perf_counter() - start
-        if is_all_errored(out[model]):
-            print(
-                f"WARNING: {model!r} errored on all {len(cases)} cases — NOT saved "
-                f"to {_COMPARE_FILE} (check the model name).",
-                file=sys.stderr,
-            )
-        else:
-            print(
-                f"judged {len(cases)} cases with {model} in {timings[model]:.1f}s",
-                file=sys.stderr,
-            )
+        print(
+            f"judged {len(cases)} cases with {model} in {timings[model]:.1f}s",
+            file=sys.stderr,
+        )
         if out_dir is not None:
-            # Persist progressively (a crash keeps completed models), but keep
-            # all-errored runs out of the accumulated leaderboard.
-            good = {m: js for m, js in out.items() if not is_all_errored(js)}
-            if good:
-                _persist(out_dir, good)
+            _persist(out_dir, out)  # progressive, so a crash keeps completed models
     return out, timings
 
 
