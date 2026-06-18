@@ -80,15 +80,6 @@ def score_run(
     return scores
 
 
-def is_all_errored(judgments: list[CitationJudgment]) -> bool:
-    """True if every judgment is a synthesized error sentinel — i.e. the model
-    never really ran (e.g. a bad/garbled model name). Used to keep such runs out
-    of the accumulated compare leaderboard."""
-    return bool(judgments) and all(
-        j.reason.startswith(JUDGE_ERROR_PREFIX) for j in judgments
-    )
-
-
 def attach_timings(
     scores: list[ModelScore], timings: dict[str, float]
 ) -> list[ModelScore]:
