@@ -4,7 +4,14 @@ from __future__ import annotations
 from evidenceseeker.contracts import SupportJudgment as S
 from evidenceseeker.primitives.types import CitationJudgment
 from spikes.p5_viability.cases import P5Case
-from spikes.p5_viability.scoring import ModelScore, render_review, score_run
+from spikes.p5_viability.scoring import (
+    JUDGE_ERROR_PREFIX,
+    ModelScore,
+    attach_timings,
+    is_all_errored,
+    render_review,
+    score_run,
+)
 from tests._helpers import make_pico
 
 
@@ -60,6 +67,22 @@ def test_score_run_flags_only_the_reference_row() -> None:
     scores = {s.model: s for s in score_run(cases, judgments, reference_model="frontier")}
     assert scores["frontier"].is_reference is True
     assert scores["local"].is_reference is False
+
+
+def test_attach_timings_fills_seconds_and_leaves_unmeasured_none() -> None:
+    cases = [_case("a", S.DOES_NOT)]
+    judgments = {"frontier": [_j(S.DOES_NOT)], "local": [_j(S.DOES_NOT)]}
+    scores = score_run(cases, judgments, reference_model="frontier")
+    timed = {s.model: s for s in attach_timings(scores, {"local": 12.5})}
+    assert timed["local"].seconds == 12.5
+    assert timed["frontier"].seconds is None  # not measured (e.g. saved reference)
+
+
+def test_is_all_errored_detects_a_never_ran_model() -> None:
+    err = CitationJudgment(support=S.DOES_NOT, reason=f"{JUDGE_ERROR_PREFIX} bad name")
+    assert is_all_errored([err, err]) is True
+    assert is_all_errored([err, _j(S.DOES_NOT)]) is False  # one real judgment
+    assert is_all_errored([]) is False
 
 
 def test_render_review_includes_claim_and_each_models_judgment() -> None:

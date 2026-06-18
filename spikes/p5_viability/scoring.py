@@ -6,7 +6,7 @@ Pure: no LLM, no I/O. Live judging lives in ``run_viability.py``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from evidenceseeker.contracts import SupportJudgment
 from evidenceseeker.primitives.types import CitationJudgment
@@ -36,6 +36,10 @@ class ModelScore:
     # conservative does_not. A nonzero count means the other metrics are based
     # on fewer real judgments than ``n`` suggests.
     error_count: int = 0
+    # End-to-end wall-clock seconds to judge all ``n`` cases with this model.
+    # None when not measured this run (dry-run, the saved reference, or a model
+    # carried over from an earlier accumulated run).
+    seconds: float | None = None
 
 
 def _reference_labels(
@@ -74,6 +78,23 @@ def score_run(
             )
         )
     return scores
+
+
+def is_all_errored(judgments: list[CitationJudgment]) -> bool:
+    """True if every judgment is a synthesized error sentinel — i.e. the model
+    never really ran (e.g. a bad/garbled model name). Used to keep such runs out
+    of the accumulated compare leaderboard."""
+    return bool(judgments) and all(
+        j.reason.startswith(JUDGE_ERROR_PREFIX) for j in judgments
+    )
+
+
+def attach_timings(
+    scores: list[ModelScore], timings: dict[str, float]
+) -> list[ModelScore]:
+    """Return scores with each model's measured e2e ``seconds`` filled in.
+    Models absent from ``timings`` keep ``seconds=None``."""
+    return [replace(s, seconds=timings.get(s.model)) for s in scores]
 
 
 def render_review(

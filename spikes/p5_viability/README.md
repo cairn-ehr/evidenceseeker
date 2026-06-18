@@ -39,3 +39,9 @@ flagged `<- reference` — don't read it as a result. Proofread `out/review.md`
 to confirm; raw judgments are persisted to `out/judgments.json` after each
 model, so a crash mid-sweep keeps completed work. Models are configured in
 `src/evidenceseeker/config.py::P5SpikeConfig`.
+
+Both runners report per-model **e2e wall-clock** in the `secs` column and show
+live progress while judging (a `tqdm` bar if `tqdm` is installed, otherwise a
+plain `model: i/total` counter on stderr). `secs` is `-` for rows not timed this
+run (dry-run, the saved reference, or models carried over from an earlier
+accumulated run).
