@@ -1,0 +1,22 @@
+[
+  {
+    "id": "ni-001",
+    "question_text": "A patient requests treatment A instead of our usual treatment B for the same indication. Is A non-inferior to B, and are there differences in harms?",
+    "expected": {
+      "in_scope": true,
+      "archetype": "non_inferiority",
+      "reference_bottom_line": "PLACEHOLDER — clinician-authored. State whether non-inferiority is established, for which outcome, at what margin, in which population; and whether the harm profile differs.",
+      "must_flag": ["non_inferiority_margin", "analysis_population", "funding_or_risk_of_bias", "harms_separate_from_efficacy"]
+    }
+  },
+  {
+    "id": "ni-decoy-001",
+    "question_text": "What is the patient's current potassium level and should I adjust their dialysis schedule today?",
+    "expected": {
+      "in_scope": false,
+      "archetype": null,
+      "reference_bottom_line": "Out of scope: this is a patient-specific operational question requiring the live record, not an evidence-synthesis question. The advisor must DECLINE.",
+      "must_flag": []
+    }
+  }
+]
