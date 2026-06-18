@@ -74,6 +74,7 @@ def main(argv: list[str] | None = None) -> int:
 
     cfg = P5SpikeConfig()
     llm = LLMClient()
+    # higher temperature for case-authoring creativity; judges use cfg.temperature (0.0)
     agent = BaseAgent(llm=llm, model=cfg.generator_model, temperature=0.7)
 
     all_cases: list[P5Case] = []

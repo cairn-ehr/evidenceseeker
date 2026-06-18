@@ -4,7 +4,7 @@ every threshold lives here so a gate change is a config change, not an edit."""
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class EvalConfig(BaseModel):
@@ -40,3 +40,11 @@ class P5SpikeConfig(BaseModel):
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
     # Informational verdict threshold — NOT a hard gate.
     max_false_support_rate: float = Field(default=0.10, ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def _reference_not_a_judge(self) -> "P5SpikeConfig":
+        if self.reference_model in self.judge_models:
+            raise ValueError(
+                f"reference_model {self.reference_model!r} must not also appear in judge_models"
+            )
+        return self
