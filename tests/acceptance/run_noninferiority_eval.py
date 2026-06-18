@@ -30,7 +30,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 _SRC = Path(__file__).resolve().parents[2] / "src"
 if str(_SRC) not in sys.path:
@@ -70,7 +70,7 @@ class GoldItem:
     in_scope: bool
 
     @classmethod
-    def from_json(cls, raw: dict) -> "GoldItem":
+    def from_json(cls, raw: dict[str, Any]) -> "GoldItem":
         return cls(
             id=raw["id"],
             question_text=raw["question_text"],
@@ -191,7 +191,7 @@ def _print_text(results: list[ItemResult], cfg: EvalConfig, pass_rate: float) ->
     print(f"reports passing: {n_pass}/{n}  (pass_rate={pass_rate:.2f}, gate={cfg.min_pass_rate:.2f})")
 
 
-def _to_json(results: list[ItemResult], pass_rate: float) -> dict:
+def _to_json(results: list[ItemResult], pass_rate: float) -> dict[str, Any]:
     return {
         "pass_rate": pass_rate,
         "results": [

@@ -101,7 +101,7 @@ def test_wire_enums_are_strings() -> None:
 
 def test_models_are_frozen() -> None:
     with pytest.raises(ValidationError):
-        _full_report().bottom_line = "mutated"  # type: ignore[misc]
+        _full_report().bottom_line = "mutated"
 
 
 def test_unknown_fields_forbidden() -> None:

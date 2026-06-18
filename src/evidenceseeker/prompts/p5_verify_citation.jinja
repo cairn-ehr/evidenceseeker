@@ -1,0 +1,28 @@
+You are judging whether ONE passage supports a clinical claim, conditioned on a PICO frame.
+
+PICO FRAME
+Population: age_band={{ pico.population.age_band }} sex={{ pico.population.sex }} settings={{ pico.population.settings }}
+  comorbidities: {% for c in pico.population.comorbidities %}{{ c.display }}{% if not loop.last %}, {% endif %}{% endfor %}
+Intervention: {{ pico.intervention.label }}{% if pico.intervention.dose %} (dose {{ pico.intervention.dose }}){% endif %}
+Comparator: {{ pico.comparator.label }}{% if pico.comparator.dose %} (dose {{ pico.comparator.dose }}){% endif %}
+Outcomes: {% for o in pico.outcomes %}{{ o.label }} [{{ o.type }}]{% if not loop.last %}; {% endif %}{% endfor %}
+Applicability (population/setting the answer must generalize TO): {{ pico.applicability }}
+Archetype: {{ pico.archetype }}
+
+CLAIM
+{{ claim }}
+
+CANDIDATE PASSAGE
+{{ passage }}
+
+TASK
+Decide how the passage relates to the claim, CONDITIONED ON THE PICO FRAME. A passage about a
+different population, intervention, comparator, outcome, or dose than the PICO frame is at best
+"partial" and usually "does_not" — it must NEVER be "supports". Labels:
+  - "supports":    directly substantiates the claim for THIS PICO.
+  - "partial":     relevant but mismatched on population/dose/outcome/comparator, or only indirect.
+  - "does_not":    does not substantiate the claim (off-target).
+  - "contradicts": evidence against the claim for this PICO.
+
+Respond with ONLY a JSON object, no prose:
+{"support": "supports|partial|does_not|contradicts", "reason": "<one sentence>", "pico_match_notes": "<which PICO elements matched/mismatched>"}
