@@ -21,5 +21,9 @@ PYTHONPATH=src uv run python spikes/p5_viability/run_viability.py \
 ```
 
 The headline is **false_support** per local model vs the frontier reference.
-The GO/NO-GO verdict is informational. Proofread `out/review.md` to confirm.
-Models are configured in `src/evidenceseeker/config.py::P5SpikeConfig`.
+The GO/NO-GO verdict is informational. The reference model's own row is scored
+against itself (absent human gold labels), so it is trivially perfect and
+flagged `<- reference` — don't read it as a result. Proofread `out/review.md`
+to confirm; raw judgments are persisted to `out/judgments.json` after each
+model, so a crash mid-sweep keeps completed work. Models are configured in
+`src/evidenceseeker/config.py::P5SpikeConfig`.

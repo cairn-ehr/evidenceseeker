@@ -13,6 +13,11 @@ from evidenceseeker.primitives.types import CitationJudgment
 from spikes.p5_viability import metrics
 from spikes.p5_viability.cases import P5Case, reference_label
 
+# Prefix the runner stamps on the ``reason`` of a judgment it had to synthesize
+# because the model errored. Scoring counts these so a fully-failed model can't
+# masquerade as a clean GO.
+JUDGE_ERROR_PREFIX = "JUDGE-ERROR:"
+
 
 @dataclass(frozen=True)
 class ModelScore:
@@ -22,6 +27,15 @@ class ModelScore:
     false_support_rate: float
     missed_support_rate: float
     kappa_vs_frontier: float
+    # True for the reference model itself. When no case carries a human
+    # gold_label, the reference is scored against its OWN judgments, so this
+    # row's accuracy/false_support/kappa are trivially perfect and meaningless —
+    # consumers must not read them as a result.
+    is_reference: bool = False
+    # Cases the model failed to judge (error/malformed output), recorded as a
+    # conservative does_not. A nonzero count means the other metrics are based
+    # on fewer real judgments than ``n`` suggests.
+    error_count: int = 0
 
 
 def _reference_labels(
@@ -53,6 +67,10 @@ def score_run(
                 false_support_rate=metrics.false_support_rate(supports, reference),
                 missed_support_rate=metrics.missed_support_rate(supports, reference),
                 kappa_vs_frontier=metrics.cohen_kappa(supports, frontier_supports),
+                is_reference=model == reference_model,
+                error_count=sum(
+                    1 for j in judged if j.reason.startswith(JUDGE_ERROR_PREFIX)
+                ),
             )
         )
     return scores

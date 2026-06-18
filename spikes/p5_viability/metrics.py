@@ -54,7 +54,7 @@ def cohen_kappa(a: list[SupportJudgment], b: list[SupportJudgment]) -> float:
     count_a = Counter(a)
     count_b = Counter(b)
     labels = set(a) | set(b)
-    expected = sum((count_a[l] / n) * (count_b[l] / n) for l in labels)
+    expected = sum((count_a[label] / n) * (count_b[label] / n) for label in labels)
     if expected == 1.0:
         return 1.0
     return (observed - expected) / (1.0 - expected)

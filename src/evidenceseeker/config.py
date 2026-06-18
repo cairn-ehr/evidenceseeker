@@ -37,7 +37,10 @@ class P5SpikeConfig(BaseModel):
     reference_model: str = "anthropic:claude-sonnet-4-6"
     generator_model: str = "anthropic:claude-sonnet-4-6"
     cases_per_class: int = Field(default=5, ge=1)
+    # Judges run greedy (0.0) for reproducibility; case authoring wants some
+    # variety, hence a separate, higher generator temperature.
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
+    generator_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     # Informational verdict threshold — NOT a hard gate.
     max_false_support_rate: float = Field(default=0.10, ge=0.0, le=1.0)
 

@@ -5,7 +5,11 @@ The generator records the class it was asked to construct as ``intended_class``
 but that label is NEVER shown to a judge. Hand-proofread the emitted JSON before
 running the comparison. Disposable: Stage 2 replaces this with real literature.
 
-    PYTHONPATH=src python spikes/p5_viability/generate_cases.py \
+Scope: every generated case uses the ``non_inferiority`` archetype, so this
+screen assesses P5 viability for non-inferiority framing only — false-support
+behavior may differ for harm/superiority frames.
+
+    uv run python spikes/p5_viability/generate_cases.py \
         --out spikes/p5_viability/cases/generated.json
 """
 
@@ -74,8 +78,9 @@ def main(argv: list[str] | None = None) -> int:
 
     cfg = P5SpikeConfig()
     llm = LLMClient()
-    # higher temperature for case-authoring creativity; judges use cfg.temperature (0.0)
-    agent = BaseAgent(llm=llm, model=cfg.generator_model, temperature=0.7)
+    # case-authoring wants variety, hence cfg.generator_temperature; judges run
+    # greedy at cfg.temperature (0.0).
+    agent = BaseAgent(llm=llm, model=cfg.generator_model, temperature=cfg.generator_temperature)
 
     all_cases: list[P5Case] = []
     for target in SupportJudgment:

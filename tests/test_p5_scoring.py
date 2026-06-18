@@ -51,6 +51,17 @@ def test_score_run_prefers_gold_label_over_frontier() -> None:
     assert scores["frontier"].false_support_rate == 1.0
 
 
+def test_score_run_flags_only_the_reference_row() -> None:
+    cases = [_case("a", S.DOES_NOT), _case("b", S.SUPPORTS)]
+    judgments = {
+        "frontier": [_j(S.DOES_NOT), _j(S.SUPPORTS)],
+        "local": [_j(S.SUPPORTS), _j(S.SUPPORTS)],
+    }
+    scores = {s.model: s for s in score_run(cases, judgments, reference_model="frontier")}
+    assert scores["frontier"].is_reference is True
+    assert scores["local"].is_reference is False
+
+
 def test_render_review_includes_claim_and_each_models_judgment() -> None:
     cases = [_case("a", S.DOES_NOT)]
     judgments = {"frontier": [_j(S.DOES_NOT)], "local": [_j(S.SUPPORTS)]}
