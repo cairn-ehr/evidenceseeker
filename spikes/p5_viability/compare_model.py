@@ -28,6 +28,7 @@ import argparse
 import dataclasses
 import json
 import sys
+import time
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[2]
@@ -41,9 +42,14 @@ from spikes.p5_viability.cases import P5Case, load_cases  # noqa: E402
 from spikes.p5_viability.run_viability import (  # noqa: E402
     _print_text,
     dry_run_judgments,
+    progress,
     safe_verify,
 )
-from spikes.p5_viability.scoring import render_review, score_run  # noqa: E402
+from spikes.p5_viability.scoring import (  # noqa: E402
+    attach_timings,
+    render_review,
+    score_run,
+)
 
 _DEFAULT_CASES = _ROOT / "spikes/p5_viability/cases/generated.json"
 _DEFAULT_REF = _ROOT / "spikes/p5_viability/out/judgments.json"
@@ -116,20 +122,26 @@ def judge_with(
     cases: list[P5Case],
     cfg: P5SpikeConfig,
     out_dir: Path | None = None,
-) -> dict[str, list[CitationJudgment]]:
+) -> tuple[dict[str, list[CitationJudgment]], dict[str, float]]:
     from bmlib.llm import LLMClient
 
     from evidenceseeker.primitives.p5_verify_citation import make_p5_agent
 
     llm = LLMClient()
     out: dict[str, list[CitationJudgment]] = {}
+    timings: dict[str, float] = {}
     for model in models:
         agent = make_p5_agent(llm, model, temperature=cfg.temperature)
-        out[model] = [safe_verify(agent, c) for c in cases]
-        print(f"judged {len(cases)} cases with {model}", file=sys.stderr)
+        start = time.perf_counter()
+        out[model] = [safe_verify(agent, c) for c in progress(cases, desc=model)]
+        timings[model] = time.perf_counter() - start
+        print(
+            f"judged {len(cases)} cases with {model} in {timings[model]:.1f}s",
+            file=sys.stderr,
+        )
         if out_dir is not None:
             _persist(out_dir, out)  # progressive, so a crash keeps completed models
-    return out
+    return out, timings
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -153,17 +165,18 @@ def main(argv: list[str] | None = None) -> int:
         args.reference_judgments, base.reference_model, len(cases)
     )
 
-    candidates = (
-        dry_run_judgments(cases, args.models)
-        if args.dry_run
-        else judge_with(args.models, cases, base, out_dir=args.out)
-    )
+    if args.dry_run:
+        candidates = dry_run_judgments(cases, args.models)
+        timings: dict[str, float] = {}
+    else:
+        candidates, timings = judge_with(args.models, cases, base, out_dir=args.out)
     # With --out, judge_with merged this run into the accumulated leaderboard;
     # score and review the whole accumulated set so earlier candidates persist.
+    # (Carried-over models have no timing this run -> seconds shows "-".)
     if args.out is not None and not args.dry_run:
         candidates = {**_load_accumulated(args.out, len(cases)), **candidates}
     judgments = {base.reference_model: reference, **candidates}
-    scores = score_run(cases, judgments, base.reference_model)
+    scores = attach_timings(score_run(cases, judgments, base.reference_model), timings)
 
     # A config whose judge_models are every scored candidate, so the verdict
     # flags them all (the table marks the reference row regardless).
