@@ -63,10 +63,15 @@ def render_review(
     judgments: dict[str, list[CitationJudgment]],
     reference_model: str,
 ) -> str:
-    lines: list[str] = ["# P5 viability review\n"]
+    for model, judged in judgments.items():
+        if len(judged) != len(cases):
+            raise ValueError(
+                f"judgment list for {model!r} has {len(judged)} entries, expected {len(cases)}"
+            )
+    lines: list[str] = ["# P5 viability review"]
     for idx, case in enumerate(cases):
         ref = reference_label(case, judgments[reference_model][idx].support)
-        lines.append(f"## {case.id}  (intended={case.intended_class.value}, reference={ref.value})")
+        lines.append(f"## {case.id} (intended={case.intended_class.value}, reference={ref.value})")
         lines.append(f"- **claim:** {case.claim}")
         lines.append(f"- **passage:** {case.passage}")
         lines.append(f"- **applicability:** {case.pico.applicability}")

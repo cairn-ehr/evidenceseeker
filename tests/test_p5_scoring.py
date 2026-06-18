@@ -48,6 +48,7 @@ def test_score_run_prefers_gold_label_over_frontier() -> None:
     }
     scores = {s.model: s for s in score_run(cases, judgments, "frontier")}
     assert scores["local"].false_support_rate == 1.0
+    assert scores["frontier"].false_support_rate == 1.0
 
 
 def test_render_review_includes_claim_and_each_models_judgment() -> None:
