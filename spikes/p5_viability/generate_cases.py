@@ -46,13 +46,29 @@ def build_generation_prompt(target: SupportJudgment, n: int) -> str:
         f"CLAIM and the PASSAGE is '{target.value}': {_GUIDANCE[target]}.\n"
         "Make the near-misses subtle and adversarial (e.g. right drug but wrong population "
         "or dose). Each case needs a full PICO frame.\n\n"
-        "Return ONLY JSON:\n"
+        "Return ONLY JSON. comorbidities is a list of plain condition-name "
+        "strings (may be empty), e.g. [\"type 2 diabetes\", \"hypertension\"]:\n"
         '{"cases": [{"pico": {"population": {"age_band": str, "sex": str, "settings": [str], '
-        '"comorbidities": []}, "intervention": {"label": str, "dose": str|null}, '
+        '"comorbidities": [str]}, "intervention": {"label": str, "dose": str|null}, '
         '"comparator": {"label": str}, "outcomes": [{"label": str, "type": '
         '"efficacy|harm|surrogate"}], "archetype": "non_inferiority", "question_text": str, '
         '"applicability": str}, "claim": str, "passage": str, "notes": str}]}'
     )
+
+
+def _coerce_pico(pico: dict[str, Any]) -> dict[str, Any]:
+    """Make a generated PICO dict validate-able. The model emits comorbidities
+    as bare condition names; ``CodedTerm`` needs ``{system, code, display}``, so
+    wrap each string (the spike only renders ``display``)."""
+    population = pico.get("population")
+    if isinstance(population, dict):
+        comorbidities = population.get("comorbidities")
+        if isinstance(comorbidities, list):
+            population["comorbidities"] = [
+                {"system": "freetext", "code": "", "display": c} if isinstance(c, str) else c
+                for c in comorbidities
+            ]
+    return pico
 
 
 def parse_generated(data: dict[str, Any], target: SupportJudgment) -> list[P5Case]:
@@ -61,7 +77,7 @@ def parse_generated(data: dict[str, Any], target: SupportJudgment) -> list[P5Cas
         out.append(
             P5Case(
                 id=f"{target.value}-{i}",
-                pico=PicoFrame.model_validate(raw["pico"]),
+                pico=PicoFrame.model_validate(_coerce_pico(raw["pico"])),
                 claim=str(raw["claim"]),
                 passage=str(raw["passage"]),
                 intended_class=target,
