@@ -32,6 +32,7 @@ class P5SpikeConfig(BaseModel):
             "ollama:medgemma1.5:4b-it-q8_0",
             "ollama:medgemma:27b-it-q8_0",
             "ollama:gemma4:12b-it-qat",
+            "ollama:gemma4:31b-it-qat",
             "ollama:qwen3.6:35b-a3b-q8_0",
         ]
     )
