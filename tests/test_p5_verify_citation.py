@@ -43,6 +43,7 @@ def test_verify_parses_judgment_and_conditions_on_pico() -> None:
     assert result.support is SupportJudgment.PARTIAL
     assert result.reason == "Right drug, wrong population."
     # The rendered prompt must actually carry the PICO frame.
-    rendered = llm.last_messages[1].content  # type: ignore[index]
+    assert llm.last_messages is not None
+    rendered = llm.last_messages[1].content
     assert "DrugA" in rendered and "10mg" in rendered
     assert "community outpatients aged 65-74" in rendered
