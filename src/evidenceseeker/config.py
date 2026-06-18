@@ -20,3 +20,23 @@ class EvalConfig(BaseModel):
     # A claim must cite at least this many supporting passages to count as
     # grounded (P5). Counter-claims are exempt.
     min_supporting_citations_per_claim: int = Field(default=1, ge=0)
+
+
+class P5SpikeConfig(BaseModel):
+    """Tunables for the P5 small-model viability spike."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    judge_models: list[str] = Field(
+        default_factory=lambda: [
+            "ollama:medgemma1.5:4b-it-q8_0",
+            "ollama:medgemma:27b-it-q8_0",
+            "ollama:qwen3.6:35b-a3b-q8_0",
+        ]
+    )
+    reference_model: str = "anthropic:claude-sonnet-4-6"
+    generator_model: str = "anthropic:claude-sonnet-4-6"
+    cases_per_class: int = Field(default=5, ge=1)
+    temperature: float = Field(default=0.0, ge=0.0, le=2.0)
+    # Informational verdict threshold — NOT a hard gate.
+    max_false_support_rate: float = Field(default=0.10, ge=0.0, le=1.0)
