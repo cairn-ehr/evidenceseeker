@@ -15,6 +15,11 @@ Reads cases from ``cases/generated.json`` and the reference judgments from
 ``gold_label`` still overrides the reference, exactly as in the full runner, so
 relabelling a case in the JSON immediately changes what the candidates are
 scored against.
+
+With ``--out`` the results ACCUMULATE: each run merges its candidates (keyed by
+model) into ``out/compare_judgments.json`` and the printed table + review cover
+every candidate scored so far, so you can add models one at a time. Re-running a
+model refreshes only its row.
 """
 
 from __future__ import annotations
@@ -69,12 +74,41 @@ def load_reference_judgments(
     return judged
 
 
+_COMPARE_FILE = "compare_judgments.json"
+
+
 def _persist(out_dir: Path, judgments: dict[str, list[CitationJudgment]]) -> None:
-    """Write candidate judgments to a SEPARATE file so we never clobber the
-    reference run's judgments.json."""
+    """Merge candidate judgments into a SEPARATE file (never the reference run's
+    judgments.json), keyed by model so repeated runs accumulate a leaderboard
+    rather than overwrite it. Re-running a model refreshes just its entry."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    payload = {m: [j.model_dump(mode="json") for j in js] for m, js in judgments.items()}
-    (out_dir / "compare_judgments.json").write_text(json.dumps(payload, indent=2))
+    path = out_dir / _COMPARE_FILE
+    existing = json.loads(path.read_text()) if path.exists() else {}
+    existing.update(
+        {m: [j.model_dump(mode="json") for j in js] for m, js in judgments.items()}
+    )
+    path.write_text(json.dumps(existing, indent=2))
+
+
+def _load_accumulated(
+    out_dir: Path, n_cases: int
+) -> dict[str, list[CitationJudgment]]:
+    """All candidate judgments persisted so far, dropping any whose length no
+    longer matches the current case set (stale from an earlier case file)."""
+    path = out_dir / _COMPARE_FILE
+    if not path.exists():
+        return {}
+    raw = json.loads(path.read_text())
+    out: dict[str, list[CitationJudgment]] = {}
+    for model, js in raw.items():
+        if len(js) != n_cases:
+            print(
+                f"skipping stale {model!r}: {len(js)} judgments != {n_cases} cases",
+                file=sys.stderr,
+            )
+            continue
+        out[model] = [CitationJudgment.model_validate(j) for j in js]
+    return out
 
 
 def judge_with(
@@ -124,13 +158,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.dry_run
         else judge_with(args.models, cases, base, out_dir=args.out)
     )
+    # With --out, judge_with merged this run into the accumulated leaderboard;
+    # score and review the whole accumulated set so earlier candidates persist.
+    if args.out is not None and not args.dry_run:
+        candidates = {**_load_accumulated(args.out, len(cases)), **candidates}
     judgments = {base.reference_model: reference, **candidates}
     scores = score_run(cases, judgments, base.reference_model)
 
-    # A config whose judge_models are the candidates, so the verdict flags them
-    # (the table marks the reference row regardless).
+    # A config whose judge_models are every scored candidate, so the verdict
+    # flags them all (the table marks the reference row regardless).
     verdict_cfg = P5SpikeConfig(
-        judge_models=list(args.models), reference_model=base.reference_model
+        judge_models=list(candidates), reference_model=base.reference_model
     )
 
     if args.format == "json":
