@@ -3,17 +3,18 @@
 reference, score, and emit a comparison table plus a proofreadable review.
 
     # prove the machinery without any model:
-    PYTHONPATH=src python spikes/p5_viability/run_viability.py \
+    PYTHONPATH=src uv run python spikes/p5_viability/run_viability.py \
         --cases spikes/p5_viability/cases/generated.json --dry-run
 
     # real screen:
-    PYTHONPATH=src python spikes/p5_viability/run_viability.py \
+    PYTHONPATH=src uv run python spikes/p5_viability/run_viability.py \
         --cases spikes/p5_viability/cases/generated.json --out spikes/p5_viability/out
 """
 
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -107,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     scores = score_run(cases, judgments, cfg.reference_model)
 
     if args.format == "json":
-        print(json.dumps({"scores": [s.__dict__ for s in scores]}, indent=2))
+        print(json.dumps({"scores": [dataclasses.asdict(s) for s in scores]}, indent=2))
     else:
         _print_text(scores, cfg)
 
