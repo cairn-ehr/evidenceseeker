@@ -18,7 +18,16 @@ PYTHONPATH=src uv run python spikes/p5_viability/run_viability.py \
 PYTHONPATH=src uv run python spikes/p5_viability/run_viability.py \
     --cases spikes/p5_viability/cases/generated.json \
     --out spikes/p5_viability/out
+
+# 4. Test extra candidate models against the SAVED Sonnet reference (no
+#    frontier re-run); writes compare_judgments.json + compare_review.md:
+PYTHONPATH=src uv run python spikes/p5_viability/compare_model.py \
+    ollama:gpt-oss:20b ollama:phi4:14b --out spikes/p5_viability/out
 ```
+
+`compare_model.py` reuses `out/judgments.json` as the reference, so it only
+pays for the models you name. A case's human `gold_label` overrides the Sonnet
+reference for both runners.
 
 The headline is **false_support** per local model vs the frontier reference.
 The GO/NO-GO verdict is informational. The reference model's own row is scored
