@@ -19,7 +19,9 @@ scored against.
 With ``--out`` the results ACCUMULATE: each run merges its candidates (keyed by
 model) into ``out/compare_judgments.json`` and the printed table + review cover
 every candidate scored so far, so you can add models one at a time. Re-running a
-model refreshes only its row.
+model refreshes only its row. Per-model e2e seconds are persisted alongside in
+``out/compare_timings.json``, so the leaderboard's ``secs`` survives the run and
+shows for every accumulated model.
 """
 
 from __future__ import annotations
@@ -82,6 +84,22 @@ def load_reference_judgments(
 
 
 _COMPARE_FILE = "compare_judgments.json"
+_TIMINGS_FILE = "compare_timings.json"
+
+
+def _persist_timings(out_dir: Path, timings: dict[str, float]) -> None:
+    """Merge per-model e2e seconds into a sidecar so the leaderboard's ``secs``
+    survives the run and shows for every accumulated model, not just this one."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / _TIMINGS_FILE
+    existing = json.loads(path.read_text()) if path.exists() else {}
+    existing.update(timings)
+    path.write_text(json.dumps(existing, indent=2))
+
+
+def _load_timings(out_dir: Path) -> dict[str, float]:
+    path = out_dir / _TIMINGS_FILE
+    return json.loads(path.read_text()) if path.exists() else {}
 
 
 def _persist(out_dir: Path, judgments: dict[str, list[CitationJudgment]]) -> None:
@@ -153,6 +171,7 @@ def judge_with(
             good = {m: js for m, js in out.items() if not is_all_errored(js)}
             if good:
                 _persist(out_dir, good)
+                _persist_timings(out_dir, {m: timings[m] for m in good})
     return out, timings
 
 
@@ -183,10 +202,11 @@ def main(argv: list[str] | None = None) -> int:
     else:
         candidates, timings = judge_with(args.models, cases, base, out_dir=args.out)
     # With --out, judge_with merged this run into the accumulated leaderboard;
-    # score and review the whole accumulated set so earlier candidates persist.
-    # (Carried-over models have no timing this run -> seconds shows "-".)
+    # score and review the whole accumulated set so earlier candidates persist,
+    # and use the persisted timings so every model shows its last-measured secs.
     if args.out is not None and not args.dry_run:
         candidates = {**_load_accumulated(args.out, len(cases)), **candidates}
+        timings = {**_load_timings(args.out), **timings}
     judgments = {base.reference_model: reference, **candidates}
     scores = attach_timings(score_run(cases, judgments, base.reference_model), timings)
 

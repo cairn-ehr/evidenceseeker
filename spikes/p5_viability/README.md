@@ -42,6 +42,7 @@ model, so a crash mid-sweep keeps completed work. Models are configured in
 
 Both runners report per-model **e2e wall-clock** in the `secs` column and show
 live progress while judging (a `tqdm` bar if `tqdm` is installed, otherwise a
-plain `model: i/total` counter on stderr). `secs` is `-` for rows not timed this
-run (dry-run, the saved reference, or models carried over from an earlier
-accumulated run).
+plain `model: i/total` counter on stderr). `compare_model.py` persists these to
+`out/compare_timings.json` and reloads them, so the `secs` column is populated
+for every accumulated model on later runs — not just the one judged this run.
+`secs` is still `-` for the saved reference and for dry-runs.
