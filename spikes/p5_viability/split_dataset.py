@@ -43,19 +43,21 @@ def dedupe(cases: list[P5Case]) -> list[P5Case]:
     return out
 
 
-def _assert_disjoint(eval_: list[P5Case], train: list[P5Case]) -> None:
-    eval_ids = {c.id for c in eval_}
-    train_ids = {c.id for c in train}
-    assert not (eval_ids & train_ids), f"id leakage across partitions: {eval_ids & train_ids}"
-    eval_keys = {_content_key(c) for c in eval_}
-    train_keys = {_content_key(c) for c in train}
-    assert not (eval_keys & train_keys), "content leakage across partitions"
+def _check_disjoint(eval_: list[P5Case], train: list[P5Case]) -> None:
+    """Raise if any id or normalized content leaks across the two partitions.
+    Raises (not ``assert``) so the leakage guard survives ``python -O``."""
+    id_overlap = {c.id for c in eval_} & {c.id for c in train}
+    if id_overlap:
+        raise ValueError(f"id leakage across partitions: {sorted(id_overlap)}")
+    key_overlap = {_content_key(c) for c in eval_} & {_content_key(c) for c in train}
+    if key_overlap:
+        raise ValueError("content leakage across partitions")
 
 
 def split(cases: list[P5Case], eval_frac: float) -> tuple[list[P5Case], list[P5Case]]:
     """Stratified, deterministic split into (eval, train). Within each
-    (intended_class, failure_mode) stratum, the first round(n*eval_frac) cases
-    (sorted by id) go to eval, the rest to train."""
+    (intended_class, failure_mode) stratum, the first ``int(n*eval_frac + 0.5)``
+    cases (sorted by id, round half up) go to eval, the rest to train."""
     strata: dict[tuple[str, str], list[P5Case]] = defaultdict(list)
     for c in cases:
         strata[(c.intended_class.value, c.failure_mode or "")].append(c)
@@ -63,10 +65,10 @@ def split(cases: list[P5Case], eval_frac: float) -> tuple[list[P5Case], list[P5C
     train: list[P5Case] = []
     for key in sorted(strata):
         group = sorted(strata[key], key=lambda c: c.id)
-        n_eval = round(len(group) * eval_frac)
+        n_eval = int(len(group) * eval_frac + 0.5)  # round half up (deterministic)
         eval_.extend(group[:n_eval])
         train.extend(group[n_eval:])
-    _assert_disjoint(eval_, train)
+    _check_disjoint(eval_, train)
     return eval_, train
 
 

@@ -18,6 +18,7 @@ import argparse
 import re
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 _ROOT = Path(__file__).resolve().parents[2]
 for _p in (_ROOT / "src", _ROOT):
@@ -32,6 +33,14 @@ from spikes.p5_viability.run_viability import progress, safe_verify  # noqa: E40
 
 _ID_RE = re.compile(r"^## (.+)$")
 _GOLD_RE = re.compile(r"^gold:\s*(\S+)\s*$")
+_NOTE_RE = re.compile(r"^note:\s*(.*)$")
+
+
+class WorksheetEdit(NamedTuple):
+    """A single case's human-audited gold label plus an optional reviewer note."""
+
+    label: SupportJudgment
+    note: str | None
 
 
 def _oneline(text: str) -> str:
@@ -65,32 +74,49 @@ def render_worksheet(cases: list[P5Case], judgments: list[CitationJudgment]) -> 
     return "\n".join(lines)
 
 
-def parse_worksheet(md: str) -> dict[str, SupportJudgment]:
+def parse_worksheet(md: str) -> dict[str, WorksheetEdit]:
     labels: dict[str, SupportJudgment] = {}
+    notes: dict[str, str] = {}
+    seen: set[str] = set()
     current: str | None = None
     for line in md.splitlines():
         header = _ID_RE.match(line)
         if header:
             current = header.group(1).strip()
+            if current in seen:
+                raise ValueError(f"duplicate case id in worksheet: {current!r}")
+            seen.add(current)
             continue
         gold = _GOLD_RE.match(line)
         if gold:
             if current is None:
                 raise ValueError(f"`gold:` line before any `## <id>`: {line!r}")
             labels[current] = SupportJudgment(gold.group(1))  # raises ValueError on a bad label
-            current = None
-    return labels
+            continue
+        note = _NOTE_RE.match(line)
+        if note and current is not None:
+            text = note.group(1).strip()
+            if text:
+                notes[current] = text
+    return {cid: WorksheetEdit(label, notes.get(cid)) for cid, label in labels.items()}
 
 
-def apply_labels(cases: list[P5Case], labels: dict[str, SupportJudgment]) -> list[P5Case]:
+def apply_labels(cases: list[P5Case], edits: dict[str, WorksheetEdit]) -> list[P5Case]:
     by_id = {c.id: c for c in cases}
-    unknown = set(labels) - set(by_id)
+    unknown = set(edits) - set(by_id)
     if unknown:
         raise ValueError(f"worksheet has unknown ids: {sorted(unknown)}")
-    missing = set(by_id) - set(labels)
+    missing = set(by_id) - set(edits)
     if missing:
         raise ValueError(f"no gold label for: {sorted(missing)}")
-    return [c.model_copy(update={"gold_label": labels[c.id]}) for c in cases]
+    out: list[P5Case] = []
+    for c in cases:
+        edit = edits[c.id]
+        update: dict[str, object] = {"gold_label": edit.label}
+        if edit.note:  # preserve the generator's note unless the reviewer wrote one
+            update["notes"] = edit.note
+        out.append(c.model_copy(update=update))
+    return out
 
 
 def apply_frontier_labels(
@@ -135,8 +161,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"worksheet -> {args.out} ({len(cases)} cases)", file=sys.stderr)
     elif args.cmd == "ingest":
         cases = load_cases(args.cases)
-        labels = parse_worksheet(args.worksheet.read_text())
-        save_cases(apply_labels(cases, labels), args.cases)
+        edits = parse_worksheet(args.worksheet.read_text())
+        save_cases(apply_labels(cases, edits), args.cases)
         print(f"gold labels written -> {args.cases}", file=sys.stderr)
     elif args.cmd == "label-train":
         cases = load_cases(args.cases)
