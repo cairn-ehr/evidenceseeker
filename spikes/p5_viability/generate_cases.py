@@ -10,7 +10,7 @@ screen assesses P5 viability for non-inferiority framing only — false-support
 behavior may differ for harm/superiority frames.
 
     uv run python spikes/p5_viability/generate_cases.py \
-        --out spikes/p5_viability/cases/generated.json
+        --out spikes/p5_viability/cases/pool.json
 """
 
 from __future__ import annotations
@@ -39,20 +39,45 @@ _GUIDANCE = {
     SupportJudgment.CONTRADICTS: "the passage provides evidence AGAINST the claim for this PICO",
 }
 
+# Failure modes the gold set over-samples. Both are correctly judged "partial".
+FAILURE_MODES: dict[str, str] = {
+    "significance_overstatement": (
+        "the PICO matches and the effect direction matches, BUT a claimed outcome is NOT "
+        "statistically significant (95% CI crosses 1.0 / p>0.05) while the CLAIM asserts it "
+        "is 'significant' — so the claim overstates significance"
+    ),
+    "applicability_mismatch": (
+        "the trial explicitly EXCLUDED or never enrolled the population the CLAIM is about "
+        "(e.g. the claim says renal impairment but the trial excluded CrCl<30), so the "
+        "evidence does not generalize to the claimed population"
+    ),
+}
+
+_JSON_SCHEMA = (
+    "Return ONLY JSON. comorbidities is a list of plain condition-name strings (may be "
+    'empty), e.g. ["type 2 diabetes", "hypertension"]:\n'
+    '{"cases": [{"pico": {"population": {"age_band": str, "sex": str, "settings": [str], '
+    '"comorbidities": [str]}, "intervention": {"label": str, "dose": str|null}, '
+    '"comparator": {"label": str}, "outcomes": [{"label": str, "type": '
+    '"efficacy|harm|surrogate"}], "archetype": "non_inferiority", "question_text": str, '
+    '"applicability": str}, "claim": str, "passage": str, "notes": str}]}'
+)
+
 
 def build_generation_prompt(target: SupportJudgment, n: int) -> str:
     return (
         f"Author {n} realistic clinical evidence cases where the relationship between the "
         f"CLAIM and the PASSAGE is '{target.value}': {_GUIDANCE[target]}.\n"
         "Make the near-misses subtle and adversarial (e.g. right drug but wrong population "
-        "or dose). Each case needs a full PICO frame.\n\n"
-        "Return ONLY JSON. comorbidities is a list of plain condition-name "
-        "strings (may be empty), e.g. [\"type 2 diabetes\", \"hypertension\"]:\n"
-        '{"cases": [{"pico": {"population": {"age_band": str, "sex": str, "settings": [str], '
-        '"comorbidities": [str]}, "intervention": {"label": str, "dose": str|null}, '
-        '"comparator": {"label": str}, "outcomes": [{"label": str, "type": '
-        '"efficacy|harm|surrogate"}], "archetype": "non_inferiority", "question_text": str, '
-        '"applicability": str}, "claim": str, "passage": str, "notes": str}]}'
+        "or dose). Each case needs a full PICO frame.\n\n" + _JSON_SCHEMA
+    )
+
+
+def build_failure_mode_prompt(mode: str, n: int) -> str:
+    return (
+        f"Author {n} realistic clinical evidence cases that are each a '{mode}' near-miss: "
+        f"{FAILURE_MODES[mode]}. The correct judgment for every case is 'partial'. Make them "
+        "subtle and adversarial; each needs a full PICO frame.\n\n" + _JSON_SCHEMA
     )
 
 
@@ -71,16 +96,23 @@ def _coerce_pico(pico: dict[str, Any]) -> dict[str, Any]:
     return pico
 
 
-def parse_generated(data: dict[str, Any], target: SupportJudgment) -> list[P5Case]:
+def parse_generated(
+    data: dict[str, Any],
+    intended_class: SupportJudgment,
+    *,
+    failure_mode: str | None = None,
+) -> list[P5Case]:
+    prefix = failure_mode or intended_class.value
     out: list[P5Case] = []
     for i, raw in enumerate(data["cases"]):
         out.append(
             P5Case(
-                id=f"{target.value}-{i}",
+                id=f"{prefix}-{i}",
                 pico=PicoFrame.model_validate(_coerce_pico(raw["pico"])),
                 claim=str(raw["claim"]),
                 passage=str(raw["passage"]),
-                intended_class=target,
+                intended_class=intended_class,
+                failure_mode=failure_mode,
                 notes=raw.get("notes"),
             )
         )
@@ -103,7 +135,12 @@ def main(argv: list[str] | None = None) -> int:
         prompt = build_generation_prompt(target, cfg.cases_per_class)
         data = agent.chat_json([LLMMessage(role="user", content=prompt)])
         all_cases.extend(parse_generated(data, target))
-        print(f"generated {cfg.cases_per_class} cases for {target.value}", file=sys.stderr)
+        print(f"generated {cfg.cases_per_class} baseline cases for {target.value}", file=sys.stderr)
+    for mode in FAILURE_MODES:
+        prompt = build_failure_mode_prompt(mode, cfg.cases_per_mode)
+        data = agent.chat_json([LLMMessage(role="user", content=prompt)])
+        all_cases.extend(parse_generated(data, SupportJudgment.PARTIAL, failure_mode=mode))
+        print(f"generated {cfg.cases_per_mode} {mode} cases", file=sys.stderr)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     save_cases(all_cases, args.out)
