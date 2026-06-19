@@ -22,6 +22,7 @@ class P5Case(_Frozen):
     intended_class: SupportJudgment
     gold_label: SupportJudgment | None = None
     notes: str | None = None
+    failure_mode: str | None = None
 
 
 def load_cases(path: Path) -> list[P5Case]:

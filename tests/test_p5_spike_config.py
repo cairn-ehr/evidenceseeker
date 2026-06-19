@@ -20,3 +20,9 @@ def test_generator_runs_hotter_than_judges_by_default() -> None:
     cfg = P5SpikeConfig()
     assert cfg.temperature == 0.0
     assert cfg.generator_temperature > cfg.temperature
+
+
+def test_config_has_goldset_knobs() -> None:
+    cfg = P5SpikeConfig()
+    assert cfg.cases_per_mode >= 1
+    assert 0.0 < cfg.eval_frac < 1.0
