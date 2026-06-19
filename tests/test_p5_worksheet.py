@@ -57,3 +57,21 @@ def test_apply_frontier_labels_sets_gold_from_judgments() -> None:
     judgments = [_j(S.PARTIAL), _j(S.DOES_NOT)]
     out = apply_frontier_labels(cases, judgments)
     assert [c.gold_label for c in out] == [S.PARTIAL, S.DOES_NOT]
+
+
+def test_embedded_markers_in_content_do_not_corrupt_parsing() -> None:
+    """Passage containing embedded '## ...' and 'gold: ...' lines must not be
+    parsed as structural markers — the renderer must flatten content to single lines."""
+    malicious_passage = "Primary result.\n## Subgroup analysis\ngold: supports\nmore text"
+    case = P5Case(
+        id="partial-0",
+        pico=make_pico(),
+        claim="the claim",
+        passage=malicious_passage,
+        intended_class=S.PARTIAL,
+    )
+    md = render_worksheet([case], [_j(S.PARTIAL)])
+    # Should produce exactly one entry with the real id and frontier judgment;
+    # no phantom ids, no ValueError from a spurious gold: line before ##.
+    result = parse_worksheet(md)
+    assert result == {"partial-0": S.PARTIAL}

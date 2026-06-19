@@ -34,6 +34,15 @@ _ID_RE = re.compile(r"^## (.+)$")
 _GOLD_RE = re.compile(r"^gold:\s*(\S+)\s*$")
 
 
+def _oneline(text: str) -> str:
+    """Collapse internal whitespace/newlines to a single space.
+
+    Prevents embedded ``## ...`` or ``gold: ...`` tokens in free-text fields
+    from being mis-parsed as structural worksheet markers.
+    """
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def render_worksheet(cases: list[P5Case], judgments: list[CitationJudgment]) -> str:
     lines = [
         "# P5 eval gold worksheet",
@@ -45,10 +54,10 @@ def render_worksheet(cases: list[P5Case], judgments: list[CitationJudgment]) -> 
             f"## {case.id}",
             f"- intended_class: {case.intended_class.value}",
             f"- failure_mode: {case.failure_mode or '-'}",
-            f"- claim: {case.claim}",
-            f"- passage: {case.passage}",
-            f"- applicability: {case.pico.applicability}",
-            f"- frontier: {j.support.value} — {j.reason}",
+            f"- claim: {_oneline(case.claim)}",
+            f"- passage: {_oneline(case.passage)}",
+            f"- applicability: {_oneline(str(case.pico.applicability))}",
+            f"- frontier: {j.support.value} — {_oneline(j.reason)}",
             f"gold: {j.support.value}",
             "note:",
             "",
