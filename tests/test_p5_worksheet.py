@@ -48,3 +48,12 @@ def test_apply_labels_sets_gold_and_validates_coverage() -> None:
         apply_labels(cases, {"supports-0": S.DOES_NOT})  # missing partial-0
     with pytest.raises(ValueError, match="unknown"):
         apply_labels(cases, {"supports-0": S.DOES_NOT, "partial-0": S.PARTIAL, "ghost-9": S.SUPPORTS})
+
+
+def test_apply_frontier_labels_sets_gold_from_judgments() -> None:
+    from spikes.p5_viability.worksheet import apply_frontier_labels
+
+    cases = [_case("a", S.PARTIAL), _case("b", S.SUPPORTS)]
+    judgments = [_j(S.PARTIAL), _j(S.DOES_NOT)]
+    out = apply_frontier_labels(cases, judgments)
+    assert [c.gold_label for c in out] == [S.PARTIAL, S.DOES_NOT]

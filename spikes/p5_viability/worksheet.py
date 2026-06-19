@@ -84,6 +84,17 @@ def apply_labels(cases: list[P5Case], labels: dict[str, SupportJudgment]) -> lis
     return [c.model_copy(update={"gold_label": labels[c.id]}) for c in cases]
 
 
+def apply_frontier_labels(
+    cases: list[P5Case], judgments: list[CitationJudgment]
+) -> list[P5Case]:
+    """Set gold_label = the frontier judgment (train partition is labeled at
+    scale by the frontier, no human in the loop)."""
+    return [
+        c.model_copy(update={"gold_label": j.support})
+        for c, j in zip(cases, judgments, strict=True)
+    ]
+
+
 def _frontier_judge(cases: list[P5Case], cfg: P5SpikeConfig) -> list[CitationJudgment]:
     from bmlib.llm import LLMClient
 
@@ -102,6 +113,8 @@ def main(argv: list[str] | None = None) -> int:
     ingest = sub.add_parser("ingest")
     ingest.add_argument("--worksheet", type=Path, required=True)
     ingest.add_argument("--cases", type=Path, required=True)
+    train = sub.add_parser("label-train")
+    train.add_argument("--cases", type=Path, required=True)
     args = ap.parse_args(argv)
 
     cfg = P5SpikeConfig()
@@ -116,6 +129,10 @@ def main(argv: list[str] | None = None) -> int:
         labels = parse_worksheet(args.worksheet.read_text())
         save_cases(apply_labels(cases, labels), args.cases)
         print(f"gold labels written -> {args.cases}", file=sys.stderr)
+    elif args.cmd == "label-train":
+        cases = load_cases(args.cases)
+        save_cases(apply_frontier_labels(cases, _frontier_judge(cases, cfg)), args.cases)
+        print(f"frontier gold labels written -> {args.cases}", file=sys.stderr)
     return 0
 
 
