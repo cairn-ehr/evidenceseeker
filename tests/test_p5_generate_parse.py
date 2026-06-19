@@ -65,3 +65,38 @@ def test_parse_generated_coerces_freetext_comorbidities() -> None:
     cases = parse_generated(data, SupportJudgment.PARTIAL)
     displays = [c.display for c in cases[0].pico.population.comorbidities]
     assert displays == ["type 2 diabetes", "hypertension"]
+
+
+def test_build_failure_mode_prompt_names_mode_count_and_partial() -> None:
+    from spikes.p5_viability.generate_cases import build_failure_mode_prompt
+
+    prompt = build_failure_mode_prompt("significance_overstatement", 4)
+    assert "significance_overstatement" in prompt
+    assert "4" in prompt
+    assert "partial" in prompt
+
+
+def test_parse_generated_tags_failure_mode() -> None:
+    from spikes.p5_viability.generate_cases import parse_generated
+
+    data = {
+        "cases": [
+            {
+                "pico": {
+                    "population": {"age_band": "65-74", "sex": "any", "settings": ["outpatient"]},
+                    "intervention": {"label": "DrugA", "dose": "10mg"},
+                    "comparator": {"label": "DrugB"},
+                    "outcomes": [{"label": "mortality", "type": "efficacy"}],
+                    "archetype": "non_inferiority",
+                    "question_text": "Is DrugA non-inferior to DrugB?",
+                    "applicability": "outpatients 65-74",
+                },
+                "claim": "c",
+                "passage": "p",
+            }
+        ]
+    }
+    cases = parse_generated(data, SupportJudgment.PARTIAL, failure_mode="applicability_mismatch")
+    assert cases[0].failure_mode == "applicability_mismatch"
+    assert cases[0].intended_class is SupportJudgment.PARTIAL
+    assert cases[0].id == "applicability_mismatch-0"

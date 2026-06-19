@@ -39,6 +39,10 @@ class P5SpikeConfig(BaseModel):
     reference_model: str = "anthropic:claude-sonnet-4-6"
     generator_model: str = "anthropic:claude-sonnet-4-6"
     cases_per_class: int = Field(default=5, ge=1)
+    # Per-failure-mode case count for the gold-set pool (significance / applicability).
+    cases_per_mode: int = Field(default=8, ge=1)
+    # Fraction of each stratum routed to the human-verified eval partition.
+    eval_frac: float = Field(default=0.3, gt=0.0, lt=1.0)
     # Judges run greedy (0.0) for reproducibility; case authoring wants some
     # variety, hence a separate, higher generator temperature.
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
