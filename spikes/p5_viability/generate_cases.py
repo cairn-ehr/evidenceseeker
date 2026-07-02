@@ -9,6 +9,9 @@ Scope: every generated case uses the ``non_inferiority`` archetype, so this
 screen assesses P5 viability for non-inferiority framing only — false-support
 behavior may differ for harm/superiority frames.
 
+Requires ANTHROPIC_API_KEY in the environment (the generator uses the frontier
+``generator_model``). Set it in your shell: ``export ANTHROPIC_API_KEY=sk-...``.
+
     uv run python spikes/p5_viability/generate_cases.py \
         --out spikes/p5_viability/cases/pool.json
 """
@@ -31,6 +34,7 @@ from bmlib.llm import LLMClient, LLMMessage  # noqa: E402
 from evidenceseeker.config import P5SpikeConfig  # noqa: E402
 from evidenceseeker.contracts import PicoFrame, SupportJudgment  # noqa: E402
 from spikes.p5_viability.cases import P5Case, save_cases  # noqa: E402
+from spikes.p5_viability.env_check import require_api_keys  # noqa: E402
 
 _GUIDANCE = {
     SupportJudgment.SUPPORTS: "the passage directly substantiates the claim for the exact PICO",
@@ -125,6 +129,7 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     cfg = P5SpikeConfig()
+    require_api_keys([cfg.generator_model])
     llm = LLMClient()
     # case-authoring wants variety, hence cfg.generator_temperature; judges run
     # greedy at cfg.temperature (0.0).

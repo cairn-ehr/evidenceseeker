@@ -3,6 +3,10 @@
 frontier proposes a label per case; you audit it), and frontier-label the train
 partition. Pure render/parse/apply helpers + thin LLM-bound CLI subcommands.
 
+``emit`` and ``label-train`` call the frontier ``reference_model`` and need
+ANTHROPIC_API_KEY in the environment (``export ANTHROPIC_API_KEY=sk-...``);
+``ingest`` is pure and needs no key.
+
     PYTHONPATH=src uv run python spikes/p5_viability/worksheet.py emit \
         --cases spikes/p5_viability/cases/eval.json --out spikes/p5_viability/cases/eval_worksheet.md
     # ...edit eval_worksheet.md...
@@ -29,6 +33,7 @@ from evidenceseeker.config import P5SpikeConfig  # noqa: E402
 from evidenceseeker.contracts import SupportJudgment  # noqa: E402
 from evidenceseeker.primitives.types import CitationJudgment  # noqa: E402
 from spikes.p5_viability.cases import P5Case, load_cases, save_cases  # noqa: E402
+from spikes.p5_viability.env_check import require_api_keys  # noqa: E402
 from spikes.p5_viability.run_viability import progress, safe_verify  # noqa: E402
 
 _ID_RE = re.compile(r"^## (.+)$")
@@ -131,6 +136,8 @@ def apply_frontier_labels(
 
 
 def _frontier_judge(cases: list[P5Case], cfg: P5SpikeConfig) -> list[CitationJudgment]:
+    require_api_keys([cfg.reference_model])  # fail fast before any judging
+
     from bmlib.llm import LLMClient
 
     from evidenceseeker.primitives.p5_verify_citation import make_p5_agent

@@ -6,7 +6,8 @@ reference, score, and emit a comparison table plus a proofreadable review.
     PYTHONPATH=src uv run python spikes/p5_viability/run_viability.py \
         --cases spikes/p5_viability/cases/generated.json --dry-run
 
-    # real screen:
+    # real screen (needs ANTHROPIC_API_KEY for the frontier reference + Ollama
+    # running for the local judges):
     PYTHONPATH=src uv run python spikes/p5_viability/run_viability.py \
         --cases spikes/p5_viability/cases/generated.json --out spikes/p5_viability/out
 """
@@ -31,6 +32,7 @@ from evidenceseeker.config import P5SpikeConfig  # noqa: E402
 from evidenceseeker.contracts import SupportJudgment  # noqa: E402
 from evidenceseeker.primitives.types import CitationJudgment  # noqa: E402
 from spikes.p5_viability.cases import P5Case, load_cases  # noqa: E402
+from spikes.p5_viability.env_check import require_api_keys  # noqa: E402
 from spikes.p5_viability.scoring import (  # noqa: E402
     JUDGE_ERROR_PREFIX,
     ModelScore,
@@ -189,6 +191,7 @@ def main(argv: list[str] | None = None) -> int:
         judgments = dry_run_judgments(cases, models)
         timings: dict[str, float] = {}
     else:
+        require_api_keys(models)  # fail fast before any judging if a key is missing
         judgments, timings = live_judgments(cases, models, cfg, out_dir=args.out)
     scores = attach_timings(score_run(cases, judgments, cfg.reference_model), timings)
 
